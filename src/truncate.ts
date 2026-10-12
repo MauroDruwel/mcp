@@ -39,7 +39,7 @@ type Json = string | number | boolean | null | Json[] | { [key: string]: Json }
  */
 export function stringifyResponse(content: unknown): string {
   if (typeof content === 'string') return content
-  return JSON.stringify(content, null, 2) ?? String(content)
+  return safeStringify(content, 2) ?? String(content)
 }
 
 /**
@@ -58,13 +58,69 @@ export function truncateResponse(content: unknown): string {
     return json === undefined ? truncateText(content) : shrinkToText(json)
   }
 
-  const compact: string | undefined = JSON.stringify(content)
+  const compact: string | undefined = safeStringify(content)
   if (compact === undefined) return String(content)
   // Re-parse so `toJSON` and `undefined` members are seen the way they serialize.
-  if (compact.length > MAX_CHARS) return shrinkToText(JSON.parse(compact))
+  if (compact.length > MAX_CHARS) {
+    const json = parseJsonContainer(compact)
+    return json === undefined ? truncateText(compact) : shrinkToText(json)
+  }
 
-  const pretty = JSON.stringify(content, null, 2)
-  return pretty.length <= MAX_CHARS ? pretty : compact
+  const pretty = safeStringify(content, 2)
+  return pretty !== undefined && pretty.length <= MAX_CHARS ? pretty : compact
+}
+
+/**
+ * Safely serialize a sandbox value to JSON-compatible text.
+ *
+ * Values that cross the Worker RPC boundary can include non-JSON types:
+ * - `BigInt` values are serialized as their literal notation (`1n`)
+ * - Circular references are replaced with `"[Circular]"`
+ * - Primitives without a JSON representation (`undefined`, `symbol`, `function`)
+ *   fall back to their `String()` representation.
+ */
+export function safeStringify(obj: unknown, space?: number): string | undefined {
+  if (typeof obj === 'bigint') return `${obj}n`
+  if (typeof obj === 'symbol' || typeof obj === 'function') return String(obj)
+
+  const stack: unknown[] = []
+  const keys: string[] = []
+
+  try {
+    return JSON.stringify(
+      obj,
+      function (this: unknown, key: string, value: unknown) {
+        if (typeof value === 'bigint') {
+          return `${value}n`
+        }
+        if (typeof value === 'symbol' || typeof value === 'function') {
+          return String(value)
+        }
+        if (typeof value === 'object' && value !== null) {
+          if (stack.length > 0) {
+            const thisPos = stack.indexOf(this)
+            if (~thisPos) {
+              stack.length = thisPos + 1
+              keys.length = thisPos + 1
+              keys[thisPos] = key
+            } else {
+              stack.push(this)
+              keys.push(key)
+            }
+            if (~stack.indexOf(value)) {
+              return '[Circular]'
+            }
+          } else {
+            stack.push(value)
+          }
+        }
+        return value
+      },
+      space
+    )
+  } catch {
+    return undefined
+  }
 }
 
 function truncateText(text: string): string {
