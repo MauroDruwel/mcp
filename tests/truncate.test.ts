@@ -79,6 +79,11 @@ describe('truncateResponse', () => {
       '{\n  "a": {\n    "id": 1\n  },\n  "b": {\n    "id": 1\n  }\n}'
     )
   })
+
+  it('renders symbols and functions as strings', () => {
+    expect(truncateResponse(Symbol('id'))).toBe('Symbol(id)')
+    expect(truncateResponse({ fn: () => 1 })).toBe('{\n  "fn": "() => 1"\n}')
+  })
 })
 
 describe('truncateResponse with oversized JSON', () => {
@@ -264,5 +269,10 @@ describe('stringifyResponse', () => {
     const x: Record<string, unknown> = {}
     x.self = x
     expect(stringifyResponse(x)).toBe('{\n  "self": "[Circular]"\n}')
+  })
+
+  it('renders symbols and functions as strings', () => {
+    expect(stringifyResponse(Symbol('test'))).toBe('Symbol(test)')
+    expect(stringifyResponse({ callback: () => true })).toBe('{\n  "callback": "() => true"\n}')
   })
 })

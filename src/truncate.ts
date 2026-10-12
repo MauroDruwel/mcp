@@ -84,12 +84,11 @@ export function safeStringify(obj: unknown, space?: number): string | undefined 
   if (typeof obj === 'symbol' || typeof obj === 'function') return String(obj)
 
   const stack: unknown[] = []
-  const keys: string[] = []
 
   try {
     return JSON.stringify(
       obj,
-      function (this: unknown, key: string, value: unknown) {
+      function (this: unknown, _key: string, value: unknown) {
         if (typeof value === 'bigint') {
           return `${value}n`
         }
@@ -99,15 +98,12 @@ export function safeStringify(obj: unknown, space?: number): string | undefined 
         if (typeof value === 'object' && value !== null) {
           if (stack.length > 0) {
             const thisPos = stack.indexOf(this)
-            if (~thisPos) {
+            if (thisPos !== -1) {
               stack.length = thisPos + 1
-              keys.length = thisPos + 1
-              keys[thisPos] = key
             } else {
               stack.push(this)
-              keys.push(key)
             }
-            if (~stack.indexOf(value)) {
+            if (stack.includes(value)) {
               return '[Circular]'
             }
           } else {
