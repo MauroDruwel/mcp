@@ -76,8 +76,9 @@ export function truncateResponse(content: unknown): string {
  * Values that cross the Worker RPC boundary can include non-JSON types:
  * - `BigInt` values are serialized as their literal notation (`1n`)
  * - Circular references are replaced with `"[Circular]"`
- * - Primitives without a JSON representation (`undefined`, `symbol`, `function`)
- *   fall back to their `String()` representation.
+ * - `symbol` and `function` primitives fall back to their `String()` representation
+ * - `undefined` returns `undefined` (preserving standard `JSON.stringify` semantics)
+ *   so callers can apply their own fallback (`?? String(content)`).
  */
 export function safeStringify(obj: unknown, space?: number): string | undefined {
   if (typeof obj === 'bigint') return `${obj}n`

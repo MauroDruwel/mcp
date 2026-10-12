@@ -421,4 +421,14 @@ describe('search: real SPEC_BUCKET', () => {
     expect(toolText(result)).not.toContain('should not reach')
     expect(result.result?.isError).toBe(true)
   })
+
+  it('handles non-JSON return values without formatter errors', async () => {
+    await seedSpec(SPEC_PATHS)
+
+    const result = await callTool(API_TOKEN, 'search', {
+      code: `async () => 1n`
+    })
+    expect(result.result?.isError).toBeFalsy()
+    expect(toolText(result)).toBe('1n')
+  })
 })
